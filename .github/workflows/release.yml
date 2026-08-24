@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: true
+      - name: Test
+        run: |
+          go test -race ./...
+          go vet ./...
+      - name: Build release files
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          for architecture in amd64 arm64; do
+            stage="$(mktemp -d)"
+            GOOS=linux GOARCH="${architecture}" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "${stage}/omapad" .
+            cp README.md LICENSE "${stage}/"
+            mkdir -p "${stage}/packaging/systemd" "${stage}/omarchy"
+            cp packaging/systemd/omapad.service "${stage}/packaging/systemd/"
+            cp -R omarchy/local.omapad "${stage}/omarchy/"
+            tar -C "${stage}" -czf "dist/omapad_${version}_linux_${architecture}.tar.gz" .
+          done
+          sha256sum dist/*.tar.gz > dist/checksums.txt
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --title "${GITHUB_REF_NAME}" --generate-notes

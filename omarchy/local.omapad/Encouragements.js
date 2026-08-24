@@ -1,0 +1,118 @@
+.pragma library
+
+var gentle = [
+  "Tiny steps still count",
+  "Soft pace, strong habit",
+  "A little walk goes far",
+  "Easy does it, superstar",
+  "Your legs say thank you",
+  "Cozy pace activated",
+  "Slow and steady feels good",
+  "A calm stroll is still a win",
+  "Gentle miles, happy joints",
+  "Look at you getting moving",
+  "One sweet step at a time",
+  "Quiet progress is progress",
+  "A soft start is a real start",
+  "Your future self is smiling",
+  "Keep walking for your legs",
+  "This pace has cozy energy",
+  "Small steps, lovely momentum",
+  "You showed up, that is huge",
+  "A stroll a day feels great",
+  "Easy pace, excellent choice",
+  "Movement looks good on you",
+  "A gentle win for today",
+  "Your legs love this plan",
+  "Nice and easy, keep going",
+  "Building the habit softly"
+]
+
+var steady = [
+  "Cruising right along",
+  "That rhythm looks excellent",
+  "Steady feet, clear mind",
+  "You found your happy pace",
+  "Keep that lovely rhythm",
+  "Walking and winning",
+  "A very respectable stroll",
+  "Momentum is on your side",
+  "Your legs are clocking in",
+  "Smooth pace, smooth day",
+  "This is prime walking time",
+  "Steady mode is looking good",
+  "You are in the groove",
+  "A fine day for some steps",
+  "The step count likes this",
+  "Calm focus, moving feet",
+  "Your desk walk is thriving",
+  "Keep rolling, you have this",
+  "Good pace, better mood",
+  "That stride means business",
+  "A steady little victory",
+  "Walking through the to do list",
+  "Strong habit in progress",
+  "Lovely pace, lovely work",
+  "The legs are legging"
+]
+
+var brisk = [
+  "Brisk and brilliant",
+  "Okay speedster, we see you",
+  "Your stride has sparkle",
+  "Power walk energy",
+  "Fast feet, focused mind",
+  "This pace came to work",
+  "Look at those legs go",
+  "You are absolutely cruising",
+  "Strong pace, strong day",
+  "The belt can barely keep up",
+  "Walking with real purpose",
+  "Certified power walker",
+  "Your step count is cheering",
+  "That pace deserves applause",
+  "Zooming, but make it cozy",
+  "Excellent hustle, tiny athlete",
+  "The legs have entered chat",
+  "A brisk win is underway",
+  "High quality steps happening",
+  "You brought the good stride",
+  "This walk has main character energy",
+  "Strong rhythm, happy brain",
+  "You are eating up these steps",
+  "The pace is pacing",
+  "Brisk looks good on you"
+]
+
+var speedy = [
+  "Maximum walking enthusiasm",
+  "Those feet are flying",
+  "Turbo stroll engaged",
+  "You chose extra spicy steps",
+  "Absolute treadmill royalty",
+  "The floor is trying to escape",
+  "Very fast, very fabulous",
+  "Your sneakers mean business",
+  "This is a heroic little walk",
+  "Speed mode looks delightful",
+  "The legs demand a soundtrack",
+  "You are passing imaginary traffic",
+  "Peak indoor adventure",
+  "Your step count is delighted",
+  "Fast lane, cozy destination",
+  "A champion pace is happening",
+  "The treadmill salutes you",
+  "Tiny commute, mighty speed",
+  "You are walking with plot armor",
+  "This stride has somewhere to be",
+  "Fast feet club, founding member",
+  "The room is your racetrack",
+  "Serious pace, silly little walk",
+  "Speedy legs, excellent vibes",
+  "You have unlocked zoomies"
+]
+
+function forSpeed(speed) {
+  var choices = speed < 1.5 ? gentle : speed < 2.5 ? steady : speed < 3.5 ? brisk : speedy
+  return choices[Math.floor(Math.random() * choices.length)]
+}

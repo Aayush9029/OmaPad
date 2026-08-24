@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "local.omapad",
+  "name": "OmaPad",
+  "version": "0.1.0",
+  "author": "Aayush Pokharel",
+  "license": "MIT",
+  "description": "Live WalkingPad telemetry and controls in the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "OmaPad",
+    "description": "View session telemetry and control a WalkingPad from the bar.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "command": "omapad",
+      "refreshIntervalMs": 1000
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalMs",
+        "type": "integer",
+        "label": "Refresh interval (milliseconds)",
+        "min": 1000,
+        "max": 30000,
+        "step": 500,
+        "defaultValue": 1000
+      }
+    ]
+  }
+}
