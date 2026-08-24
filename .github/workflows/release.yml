@@ -38,7 +38,7 @@ jobs:
             cp -R omarchy/local.omapad "${stage}/omarchy/"
             tar -C "${stage}" -czf "dist/omapad_${version}_linux_${architecture}.tar.gz" .
           done
-          sha256sum dist/*.tar.gz > dist/checksums.txt
+          (cd dist && sha256sum *.tar.gz > checksums.txt)
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         env:
