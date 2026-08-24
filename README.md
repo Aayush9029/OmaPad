@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.png" width="128" alt="OmaPad icon">
+  <img src="assets/icon.png" width="64" alt="OmaPad icon">
 </p>
 
 <h1 align="center">OmaPad</h1>
@@ -34,4 +34,3 @@ omapad doctor                  Check the connection
 ```
 
 OmaPad talks directly to the treadmill over Bluetooth. It uses a private Unix socket so the terminal and Omarchy widget can safely share one connection.
-
