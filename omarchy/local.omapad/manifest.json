@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "local.omapad",
   "name": "OmaPad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Aayush Pokharel",
   "license": "MIT",
   "description": "Live WalkingPad telemetry and controls in the Omarchy bar.",

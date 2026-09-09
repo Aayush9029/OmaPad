@@ -1,11 +1,11 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "Encouragements.js" as Encouragements
+import "Model.js" as Model
 
 Panel {
   id: root
@@ -23,27 +23,29 @@ Panel {
     sessionSteps: 0
   })
   property string lastError: ""
+  property string statusError: ""
   property bool cursorActive: false
   property int selectedAction: 0
   property real wheelAccumulator: 0
   property string encouragement: ""
 
-  readonly property bool ready: String(snapshot.connectionState || "") === "ready"
-  readonly property bool running: snapshot.isRunning === true
-  readonly property real speed: Number((snapshot.status || {}).speed || 0)
-  readonly property real targetSpeed: Number(snapshot.targetSpeed || 2.5)
-  readonly property bool atTarget: running && Math.abs(speed - targetSpeed) < 0.05
+  readonly property var view: Model.presentation(snapshot, statusError)
+  readonly property bool ready: view.ready
+  readonly property bool running: view.running
+  readonly property real speed: view.speed
+  readonly property real targetSpeed: view.target
+  readonly property bool atTarget: view.atTarget
   readonly property color foreground: bar ? bar.foreground : Color.foreground
-  readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.58)
-  readonly property color faint: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.08)
-  readonly property color accent: running ? "#2dd4bf" : (ready ? "#60a5fa" : muted)
+  readonly property color muted: Qt.darker(foreground, 1.55)
+  readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+  readonly property string errorText: statusError || lastError || String(snapshot.error || "")
 
   function commandFor(args) {
     return [String(settings.command || "omapad")].concat(args)
   }
 
   function refresh() {
-    if (statusProc.running) return
+    if (statusProc.running || actionProc.running) return
     statusProc.command = commandFor(["status", "--json"])
     statusProc.running = true
   }
@@ -59,33 +61,16 @@ Panel {
   function stop() { runAction(["stop"]) }
 
   function adjustSpeed(delta) {
-    var next = Math.max(0.5, Math.min(6.0, Math.round((targetSpeed + delta) * 10) / 10))
-    if (next === targetSpeed) return
-    snapshot.targetSpeed = next
-    snapshot = Object.assign({}, snapshot)
-    encouragement = ""
-    runAction(["speed", next.toFixed(1)])
+    var args = Model.speedCommand(snapshot, statusError, actionProc.running, delta)
+    if (args) runAction(args)
   }
 
   function pickEncouragement() {
     encouragement = atTarget ? Encouragements.forSpeed(speed) : ""
   }
 
-  function durationText(seconds) {
-    var total = Math.max(0, Math.floor(Number(seconds || 0)))
-    var hours = Math.floor(total / 3600)
-    var minutes = Math.floor((total % 3600) / 60)
-    var secs = total % 60
-    if (hours > 0) return hours + ":" + String(minutes).padStart(2, "0") + ":" + String(secs).padStart(2, "0")
-    return minutes + ":" + String(secs).padStart(2, "0")
-  }
-
   function stateText() {
-    if (lastError !== "") return "Unavailable"
-    if (atTarget && encouragement !== "") return encouragement
-    if (ready) return "Target " + targetSpeed.toFixed(1) + " km/h"
-    var state = String(snapshot.connectionState || "disconnected")
-    return state.charAt(0).toUpperCase() + state.slice(1)
+    return atTarget && encouragement !== "" ? encouragement : view.title
   }
 
   implicitWidth: button.implicitWidth
@@ -109,36 +94,33 @@ Panel {
 
   Process {
     id: statusProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var parsed = JSON.parse(String(text || "{}"))
-          if (parsed && parsed.status) {
-            root.snapshot = parsed
-            root.lastError = ""
-            if (root.opened && root.atTarget && root.encouragement === "") root.pickEncouragement()
-            else if (!root.atTarget) root.encouragement = ""
-          }
-        } catch (error) {
-          root.lastError = "Invalid WalkingPad response"
-        }
+    stdout: StdioCollector { id: statusOutput; waitForEnd: true }
+    stderr: StdioCollector { id: statusErrors; waitForEnd: true }
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode !== 0 || exitStatus !== 0) {
+        root.statusError = String(statusErrors.text || "").trim() || "OmaPad service is unavailable"
+        return
       }
-    }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (String(text || "").trim() !== "") root.lastError = String(text).trim()
+      try {
+        root.snapshot = Model.parseSnapshot(String(statusOutput.text || ""))
+        root.statusError = ""
+        if (root.opened && root.atTarget && root.encouragement === "") root.pickEncouragement()
+        else if (!root.atTarget) root.encouragement = ""
+      } catch (error) {
+        root.statusError = "Invalid WalkingPad response"
+      }
     }
   }
 
   Process {
     id: actionProc
     stdout: StdioCollector { waitForEnd: true }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (String(text || "").trim() !== "") root.lastError = String(text).trim()
+    stderr: StdioCollector { id: actionErrors; waitForEnd: true }
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode !== 0 || exitStatus !== 0)
+        root.lastError = String(actionErrors.text || "").trim() || "WalkingPad command failed"
+      root.refresh()
     }
-    onRunningChanged: if (!running) root.refresh()
   }
 
   IpcHandler {
@@ -162,8 +144,8 @@ Panel {
     bar: root.bar
     text: ""
     fontFamily: "JetBrainsMono Nerd Font"
-    foreground: Color.muted
-    activeColor: "#ffffff"
+    foreground: root.ready ? root.barForeground : Qt.darker(root.barForeground, 1.55)
+    activeColor: root.barForeground
     active: root.running
     tooltipText: root.stateText()
     onPressed: function(mouseButton) {
@@ -185,8 +167,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(360))
-    contentHeight: panel.fittedContentHeight(content.implicitHeight, Style.space(480))
+    contentWidth: panel.fittedContentWidth(Style.space(380))
+    contentHeight: panel.fittedContentHeight(content.implicitHeight, Style.space(560))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -202,195 +184,179 @@ Panel {
       onTextKey: function(text) {
         if (text === " " || text === "p" || text === "P") root.toggleRunning()
         else if (text === "s" || text === "S") root.stop()
-        else if (text === "r" || text === "R") root.refresh()
+        else if (text === "r" || text === "R") { root.lastError = ""; root.refresh() }
       }
 
-      Column {
-        id: content
-        width: parent.width
-        spacing: Style.space(12)
+      Flickable {
+        anchors.fill: parent
+        contentHeight: content.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
 
-        PanelHero {
+        Column {
+          id: content
           width: parent.width
-          title: "OmaPad"
-          meta: root.stateText()
-          foreground: root.foreground
-          fontFamily: bar ? bar.fontFamily : Style.font.family
-          iconOpacity: root.ready ? 1.0 : 0.5
-          iconComponent: Component {
-            Text {
-              text: ""
-              color: root.accent
-              font.family: "JetBrainsMono Nerd Font"
-              font.pixelSize: Style.font.display
+          spacing: Style.space(12)
+
+          PanelHero {
+            width: parent.width
+            title: "OmaPad"
+            meta: root.stateText()
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            iconOpacity: root.ready ? 1.0 : 0.5
+            iconComponent: Component {
+              Text {
+                text: ""
+                color: root.foreground
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: Style.font.display
+              }
+            }
+            trailingControl: Component {
+              Button {
+                iconText: "󰑓"
+                tooltipText: "Refresh connection"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                enabled: !statusProc.running && !actionProc.running
+                opacity: enabled ? 1 : 0.45
+                onClicked: { root.lastError = ""; root.refresh() }
+              }
             }
           }
-        }
 
-        Rectangle {
-          width: parent.width
-          implicitHeight: speedColumn.implicitHeight + Style.space(24)
-          radius: Style.space(12)
-          color: root.faint
+          PanelSeparator { foreground: root.foreground }
 
           Column {
-            id: speedColumn
-            anchors.fill: parent
-            anchors.margins: Style.space(12)
+            width: parent.width
             spacing: Style.space(8)
+            PanelSectionHeader {
+              text: "SESSION"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+            MetricRow { label: "Speed"; value: root.view.speedText }
+            MetricRow { label: "Time"; value: root.view.timeText }
+            MetricRow { label: "Distance"; value: root.view.distanceText }
+            MetricRow { label: "Steps"; value: root.view.stepsText }
+          }
 
+          PanelSeparator { foreground: root.foreground }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(10)
+            PanelSectionHeader {
+              text: "TARGET SPEED"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
             RowLayout {
               width: parent.width
+              spacing: Style.space(12)
+              ControlButton {
+                text: "−"
+                tooltipText: "Decrease speed by 0.5 km/h"
+                enabled: root.ready && !actionProc.running && root.targetSpeed > 0.5
+                onClicked: root.adjustSpeed(-0.5)
+              }
               Text {
-                text: root.ready ? root.speed.toFixed(1) : "-"
-                color: root.accent
-                font.family: bar ? bar.fontFamily : Style.font.family
-                font.pixelSize: Style.font.display
+                Layout.fillWidth: true
+                text: root.targetSpeed.toFixed(1) + " km/h"
+                horizontalAlignment: Text.AlignHCenter
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.title
                 font.bold: true
               }
-              Text {
-                text: "km/h"
-                color: root.muted
-                font.family: bar ? bar.fontFamily : Style.font.family
-                font.pixelSize: Style.font.body
-                Layout.alignment: Qt.AlignBottom
-                Layout.bottomMargin: Style.space(4)
-              }
-              Item { Layout.fillWidth: true }
-            }
-
-            Rectangle {
-              width: parent.width
-              height: Style.space(5)
-              radius: height / 2
-              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.1)
-              Rectangle {
-                width: parent.width * Math.max(0, Math.min(1, root.speed / 6))
-                height: parent.height
-                radius: height / 2
-                color: root.accent
-              }
-            }
-
-            RowLayout {
-              width: parent.width
-              Repeater {
-                model: [
-                  { label: "TIME", value: root.durationText(root.snapshot.sessionTime) },
-                  { label: "DIST", value: Number(root.snapshot.sessionDistance || 0).toFixed(2) + " km" },
-                  { label: "STEPS", value: String(root.snapshot.sessionSteps || 0) }
-                ]
-                delegate: Column {
-                  Layout.fillWidth: true
-                  Text {
-                    text: modelData.label
-                    color: root.muted
-                    font.family: bar ? bar.fontFamily : Style.font.family
-                    font.pixelSize: Style.font.caption
-                    font.bold: true
-                  }
-                  Text {
-                    text: modelData.value
-                    color: root.foreground
-                    font.family: bar ? bar.fontFamily : Style.font.family
-                    font.pixelSize: Style.font.body
-                    font.bold: true
-                  }
-                }
+              ControlButton {
+                text: "+"
+                tooltipText: "Increase speed by 0.5 km/h"
+                enabled: root.ready && !actionProc.running && root.targetSpeed < 6
+                onClicked: root.adjustSpeed(0.5)
               }
             }
           }
-        }
 
-        RowLayout {
-          width: parent.width
-          spacing: Style.space(8)
-
-          ActionButton {
-            Layout.fillWidth: true
-            text: root.running ? "Pause" : "Start"
-            glyph: root.running ? "󰏤" : "󰐊"
-            enabled: root.ready && !actionProc.running
-            selected: root.cursorActive && root.selectedAction === 0
-            destructive: false
-            onClicked: root.toggleRunning()
+          RowLayout {
+            width: parent.width
+            spacing: Style.space(8)
+            ControlButton {
+              Layout.fillWidth: true
+              text: root.running ? "Pause" : "Start"
+              iconText: root.running ? "󰏤" : "󰐊"
+              active: root.ready
+              hasCursor: root.cursorActive && root.selectedAction === 0
+              onHovered: function(hovered) { if (hovered) { root.cursorActive = true; root.selectedAction = 0 } }
+              onClicked: root.toggleRunning()
+            }
+            ControlButton {
+              Layout.fillWidth: true
+              text: "Stop"
+              iconText: "󰓛"
+              tooltipText: "Stop and reset this session"
+              hasCursor: root.cursorActive && root.selectedAction === 1
+              onHovered: function(hovered) { if (hovered) { root.cursorActive = true; root.selectedAction = 1 } }
+              onClicked: root.stop()
+            }
           }
-          ActionButton {
-            Layout.fillWidth: true
-            text: "Stop"
-            glyph: "󰓛"
-            enabled: root.ready && !actionProc.running
-            selected: root.cursorActive && root.selectedAction === 1
-            destructive: true
-            onClicked: root.stop()
+
+          PanelSeparator { foreground: root.foreground }
+
+          Text {
+            width: parent.width
+            visible: !root.ready || root.errorText !== ""
+            textFormat: Text.PlainText
+            text: root.errorText !== "" ? root.errorText : "Turn on your WalkingPad to connect."
+            color: root.errorText !== "" ? Color.urgent : root.muted
+            wrapMode: Text.Wrap
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
           }
-        }
-
-        Text {
-          visible: root.lastError !== "" || root.snapshot.error !== undefined
-          width: parent.width
-          text: root.lastError !== "" ? root.lastError : String(root.snapshot.error || "")
-          color: "#fb7185"
-          wrapMode: Text.Wrap
-          maximumLineCount: 2
-          elide: Text.ElideRight
-          font.family: bar ? bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.caption
-        }
-
-        Text {
-          width: parent.width
-          text: "Scroll or h/l to change speed  ·  Space to start/pause"
-          color: root.muted
-          horizontalAlignment: Text.AlignHCenter
-          font.family: bar ? bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.caption
+          Text {
+            width: parent.width
+            text: "← →  Speed   ·   Space  Select   ·   R  Refresh"
+            color: root.muted
+            wrapMode: Text.Wrap
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
         }
       }
     }
   }
 
-  component ActionButton: Rectangle {
-    id: action
-    property string text: ""
-    property string glyph: ""
-    property bool selected: false
-    property bool destructive: false
-    signal clicked()
-
-    implicitHeight: Style.space(42)
-    radius: Style.space(10)
-    color: mouse.containsMouse || selected
-      ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14)
-      : root.faint
-    border.width: selected ? 1 : 0
-    border.color: destructive ? "#fb7185" : root.accent
-    opacity: enabled ? 1 : 0.45
-
-    Row {
-      anchors.centerIn: parent
-      spacing: Style.space(7)
-      Text {
-        text: action.glyph
-        color: action.destructive ? "#fb7185" : root.foreground
-        font.family: bar ? bar.fontFamily : Style.font.family
-        font.pixelSize: Style.font.body
-      }
-      Text {
-        text: action.text
-        color: action.destructive ? "#fb7185" : root.foreground
-        font.family: bar ? bar.fontFamily : Style.font.family
-        font.pixelSize: Style.font.body
-        font.bold: true
-      }
+  component MetricRow: RowLayout {
+    property string label: ""
+    property string value: ""
+    width: parent.width
+    spacing: Style.space(20)
+    Text {
+      text: label
+      color: root.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
     }
-    MouseArea {
-      id: mouse
-      anchors.fill: parent
-      hoverEnabled: true
-      enabled: action.enabled
-      cursorShape: Qt.PointingHandCursor
-      onClicked: action.clicked()
+    Text {
+      Layout.fillWidth: true
+      text: value
+      textFormat: Text.PlainText
+      color: root.foreground
+      horizontalAlignment: Text.AlignRight
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      elide: Text.ElideRight
     }
+  }
+
+  component ControlButton: Button {
+    foreground: root.foreground
+    fontFamily: root.fontFamily
+    fontSize: Style.font.bodySmall
+    verticalPadding: Style.spacing.controlPaddingY + Style.space(2)
+    bordered: true
+    enabled: root.ready && !actionProc.running
+    opacity: enabled ? 1 : 0.4
   }
 }

@@ -34,3 +34,17 @@ omapad doctor                  Check the connection
 ```
 
 OmaPad talks directly to the treadmill over Bluetooth. It uses a private Unix socket so the terminal and Omarchy widget can safely share one connection.
+
+## Development
+
+Run the protocol, IPC, daemon, and panel state tests without a treadmill or Bluetooth connection:
+
+```bash
+go test -race ./...
+go vet ./...
+node --test tests/*.test.cjs
+```
+
+The panel uses Omarchy's shared hero, separators, section headings, and buttons.
+Its state formatting and speed-command rules live in `omarchy/local.omapad/Model.js`,
+which the tests execute directly. To build locally, run `go build -o omapad .`.

@@ -42,12 +42,14 @@ install -Dm755 "${temporary_root}/omapad" "${INSTALL_ROOT}/bin/omapad"
 install -Dm644 "${temporary_root}/packaging/systemd/omapad.service" "${SYSTEMD_ROOT}/omapad.service"
 
 systemctl --user daemon-reload
-systemctl --user enable --now omapad.service
+systemctl --user enable omapad.service
+systemctl --user restart omapad.service
 
 if command -v omarchy >/dev/null && command -v omarchy-shell >/dev/null; then
   install -Dm644 "${temporary_root}/omarchy/local.omapad/manifest.json" "${OMARCHY_ROOT}/manifest.json"
   install -Dm644 "${temporary_root}/omarchy/local.omapad/Panel.qml" "${OMARCHY_ROOT}/Panel.qml"
   install -Dm644 "${temporary_root}/omarchy/local.omapad/Encouragements.js" "${OMARCHY_ROOT}/Encouragements.js"
+  install -Dm644 "${temporary_root}/omarchy/local.omapad/Model.js" "${OMARCHY_ROOT}/Model.js"
   omarchy plugin validate "${OMARCHY_ROOT}"
   omarchy-shell -q shell rescanPlugins
   omarchy plugin enable local.omapad --before omarchy.bluetooth
