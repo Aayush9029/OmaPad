@@ -46,5 +46,5 @@ node --test tests/*.test.cjs
 ```
 
 The panel uses Omarchy's shared hero, separators, section headings, and buttons.
-Its state formatting and speed-command rules live in `omarchy/local.omapad/Model.js`,
+Its state formatting and speed-command rules live in `omarchy/Model.js`,
 which the tests execute directly. To build locally, run `go build -o omapad .`.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "local.omapad",
+  "id": "io.github.aayush9029.omapad",
   "name": "OmaPad",
   "version": "0.1.1",
   "author": "Aayush Pokharel",
@@ -10,7 +10,7 @@
     "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "Panel.qml"
+    "barWidget": "omarchy/Panel.qml"
   },
   "barWidget": {
     "displayName": "OmaPad",

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const model = vm.createContext({});
-vm.runInContext(readFileSync(`${__dirname}/../omarchy/local.omapad/Model.js`, 'utf8'), model);
+vm.runInContext(readFileSync(`${__dirname}/../omarchy/Model.js`, 'utf8'), model);
 const ready = { connectionState: 'ready', status: { speed: 0 }, targetSpeed: 2.5, isRunning: false };
 const walking = { ...ready, status: { speed: 2.5 }, isRunning: true, sessionTime: 3723, sessionDistance: 1.234, sessionSteps: 3456 };
 

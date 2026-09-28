@@ -9,8 +9,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "local.omapad"
-  ipcTarget: "local.omapad"
+  moduleName: "io.github.aayush9029.omapad"
+  ipcTarget: "io.github.aayush9029.omapad"
   manageIpc: false
 
   property var snapshot: ({

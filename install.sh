@@ -4,7 +4,8 @@ set -euo pipefail
 REPOSITORY="Aayush9029/OmaPad"
 INSTALL_ROOT="${HOME}/.local"
 SYSTEMD_ROOT="${HOME}/.config/systemd/user"
-OMARCHY_ROOT="${HOME}/.config/omarchy/plugins/local.omapad"
+PLUGIN_ID="io.github.aayush9029.omapad"
+PLUGINS="${HOME}/.config/omarchy/plugins"
 
 fail() {
   printf 'OmaPad: %s\n' "$1" >&2
@@ -46,13 +47,16 @@ systemctl --user enable omapad.service
 systemctl --user restart omapad.service
 
 if command -v omarchy >/dev/null && command -v omarchy-shell >/dev/null; then
-  install -Dm644 "${temporary_root}/omarchy/local.omapad/manifest.json" "${OMARCHY_ROOT}/manifest.json"
-  install -Dm644 "${temporary_root}/omarchy/local.omapad/Panel.qml" "${OMARCHY_ROOT}/Panel.qml"
-  install -Dm644 "${temporary_root}/omarchy/local.omapad/Encouragements.js" "${OMARCHY_ROOT}/Encouragements.js"
-  install -Dm644 "${temporary_root}/omarchy/local.omapad/Model.js" "${OMARCHY_ROOT}/Model.js"
-  omarchy plugin validate "${OMARCHY_ROOT}"
-  omarchy-shell -q shell rescanPlugins
-  omarchy plugin enable local.omapad --before omarchy.bluetooth
+  # Earlier versions installed a local copy of the widget under another ID.
+  if [[ -d "${PLUGINS}/local.omapad" ]]; then
+    omarchy plugin remove local.omapad --yes >/dev/null 2>&1 || rm -rf "${PLUGINS}/local.omapad"
+  fi
+  if [[ -d "${PLUGINS}/${PLUGIN_ID}" ]]; then
+    omarchy plugin update "${PLUGIN_ID}" --yes
+  else
+    omarchy plugin add "https://github.com/${REPOSITORY}" --yes
+  fi
+  omarchy plugin enable "${PLUGIN_ID}" --before omarchy.bluetooth
   printf 'Omarchy widget installed\n'
 fi
 

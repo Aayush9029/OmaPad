@@ -34,9 +34,8 @@ jobs:
             stage="$(mktemp -d)"
             GOOS=linux GOARCH="${architecture}" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "${stage}/omapad" .
             cp README.md LICENSE "${stage}/"
-            mkdir -p "${stage}/packaging/systemd" "${stage}/omarchy"
+            mkdir -p "${stage}/packaging/systemd"
             cp packaging/systemd/omapad.service "${stage}/packaging/systemd/"
-            cp -R omarchy/local.omapad "${stage}/omarchy/"
             tar -C "${stage}" -czf "dist/omapad_${version}_linux_${architecture}.tar.gz" .
           done
           (cd dist && sha256sum *.tar.gz > checksums.txt)
